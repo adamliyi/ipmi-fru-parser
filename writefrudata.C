@@ -31,6 +31,7 @@ ipmi_fru::ipmi_fru(const uint8_t fruid, const ipmi_fru_area_type type,
     iv_valid = false;
     iv_data = NULL;
     iv_present = false;
+    iv_len = 0;
 
     if(iv_type == IPMI_FRU_AREA_INTERNAL_USE)
     {
@@ -422,14 +423,7 @@ int ipmi_update_inventory(fru_area_vec_t & area_vec)
 ///----------------------------------------------------
 bool remove_invalid_area(const std::unique_ptr<ipmi_fru> &fru_area)
 {
-    // Filter the ones that do not have dbus reference.
-    if((strlen((fru_area)->get_bus_name()) == 0) ||
-       (strlen((fru_area)->get_obj_path()) == 0)  ||
-       (strlen((fru_area)->get_intf_name()) == 0))
-    {
-        return true;
-    }
-    return false;
+    return (fru_area)->get_len() == 0 ? true : false;
 }
 
 ///----------------------------------------------------------------------------------
@@ -588,8 +582,6 @@ int ipmi_validate_fru_area(const uint8_t fruid, const char *fru_file_name,
         bool present = std::ifstream(fru_file_name);
         fru_area->set_present(present);
 
-        // And update the sd_bus paths as well.
-        fru_area->setup_sd_bus_paths();
         fru_area_vec.emplace_back(std::move(fru_area));
     }
 
@@ -642,6 +634,10 @@ int ipmi_validate_fru_area(const uint8_t fruid, const char *fru_file_name,
     {
         printf("SUCCESS: Populated FRU areas for:[%s]\n",fru_file_name);
     }
+
+    // Update the sd_bus paths. The vector only contains area with data
+    for (auto& iter : fru_area_vec)
+       (iter)->setup_sd_bus_paths();
 
 #ifdef __IPMI_DEBUG__
     for(auto& iter : fru_area_vec)
